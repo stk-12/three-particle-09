@@ -48,73 +48,70 @@ class Particle {
     this.promiseList = []
     this.pathList = [
       'images/eagle.jpg',
+      'images/lion.jpg',
     ]
     this.imageList = [];
 
-    this.countParticle = 0;
+    this.particlesMesh = null;
 
+    // this.countParticle = 0;
+    
     this.randomMesh = null;
-
+    
     this.targetPositions = {};
+    this.targetCountParticles = {};
 
     this.clock = new THREE.Clock();
     this.uniforms = {
       uTime: {
         value: 0.0,
       },
-      uColor: {
-        value: [],
-      }
     }
   }
 
   init() {
-    this.pathList.forEach((image) => {
-      this.promiseList.push(
-        new Promise((resolve) => {
-					const img = new Image();
-					img.src = image;
-					img.crossOrigin = "anonymous";
+    this.promiseList = this.pathList.map((imagePath, index) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = imagePath;
+        img.crossOrigin = "anonymous";
+  
+        img.addEventListener('load', () => {
+          const imagePixels = ImagePixel(img, img.width, img.height, 5.0);
+          this.imageList[index] = imagePixels;
+          this._setImageTargetPositions(imagePixels, index);
+          resolve();
+        });
+      });
+    });
 
-					img.addEventListener('load', () => {
-						this.imageList.push(ImagePixel(img, img.width, img.height, 5.0)); //数値で粒度設定
-						resolve();
-					});
-        })
-      )
-    })
     Promise.all(this.promiseList).then(() => {
-      this._setMesh();
+      // this._setMesh();
       this._setRandomMesh();
       this._initParticlesMesh();
       this._setAnimation();
     })
   }
 
-  _setMesh() {
+  _setImageTargetPositions(imagePixels, index) {
     const filteredPositions = [];
     const filteredColors = [];
-    // const filteredAlphas = [];
 
-    const positions = this.imageList[0].position;
-    const colors = this.imageList[0].color;
-    // const alphas = this.imageList[0].alpha;
+    const positions = imagePixels.position;
+    const colors = imagePixels.color;
 
     for (let i = 0; i < colors.length; i += 3) {
       // R成分を元にデータをフィルタリング
       if (colors[i] >= 0.3) {
-        // filteredPositions.push(positions[i] + random(-2.0, 2.0), positions[i + 1] + random(-2.0, 2.0), positions[i + 2]);
         filteredPositions.push(positions[i] + random(-0.5, 0.5), positions[i + 1] + random(-0.5, 0.5), positions[i + 2]);
         filteredColors.push(colors[i], colors[i + 1], colors[i + 2]);
         // filteredAlphas.push(alphas[i / 3]);
       }
     }
 
-
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(filteredPositions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(filteredColors, 3));
-    // geometry.setAttribute('alpha', new THREE.Float32BufferAttribute(filteredAlphas, 1));
 
     // // ランダム要素
     const randomArray = [];
@@ -125,30 +122,20 @@ class Particle {
     geometry.setAttribute('aRandom', new THREE.Float32BufferAttribute(randomArray, 3));
 
     
-
-    // パーティクル数を設定
-    this.countParticle = filteredPositions.length / 3;
-
-    // 色情報をuniformsに設定
-    this.uniforms.uColor = filteredColors;
-
-    console.log(this.uniforms.uColor);
-
-    // console.log(geometry);
-
     const material = new THREE.ShaderMaterial({
       vertexShader: vertexSource,
       fragmentShader: fragmentSource,
       transparent: true
     });
     this.mesh = new THREE.Points(geometry, material);
-    // this.scene.add(this.mesh);
-
-    this.targetPositions.earth = [...geometry.attributes.position.array];
+    
+    this.targetPositions[`image${index}`] = [...geometry.attributes.position.array];
+    // パーティクル数を設定
+    this.targetCountParticles[`image${index}`] = filteredPositions.length / 3;
   }
 
   _setRandomMesh() {
-    console.log(this.countParticle);
+    // console.log(this.countParticle);
     const vertices = [];
     for (let i = 0; i < this.countParticle; i++) {
       const x = (Math.random() - 0.5) * (window.innerWidth * 1.5);
@@ -196,10 +183,12 @@ class Particle {
     this.scene.add(this.particlesMesh);
   }
 
-  _animateParticles(targetPositions) {
+  _animateParticles(target) {
     const positions = this.particlesMesh.geometry.attributes.position.array;
+    const targetPosition = this.targetPositions[target];
+    console.log(targetPosition)
 
-    for (let i = 0; i < positions.length; i+=3) {
+    for (let i = 0; i < targetPosition.length; i+=3) {
       // アニメーション用中間オブジェクト
       const intermediateObject = {
         x: positions[i],
@@ -213,9 +202,9 @@ class Particle {
         delay: 0.0 + Math.random() * 0.5,
         // ease: "power2.inOut",
         ease: "expo.inOut",
-        x: targetPositions[i],
-        y: targetPositions[i+1],
-        z: targetPositions[i+2],
+        x: targetPosition[i],
+        y: targetPosition[i+1],
+        z: targetPosition[i+2],
         onUpdate: () => {
           positions[i] = intermediateObject.x;
           positions[i+1] = intermediateObject.y;
@@ -224,11 +213,6 @@ class Particle {
         }
       });
 
-      // gsap.to(this.particlesMesh.rotation, {
-      //   duration: 0.8,
-      //   y: "+=60",
-      //   x: "+=30"
-      // });
     }
   }
 
@@ -241,11 +225,13 @@ class Particle {
         // markers: true,
         onEnter: ()=> {
           // console.log('on enter');
-          this._animateParticles(this.targetPositions.earth);
+          // this._animateParticles(this.targetPositions.image0, 'image0');
+          this._animateParticles('image0');
         },
         onLeaveBack: ()=> {
           // console.log('on leaveback');
-          this._animateParticles(this.targetPositions.random);
+          // this._animateParticles(this.targetPositions.image1, 'image1');
+          this._animateParticles('image1');
         }
       }
     });
@@ -258,11 +244,13 @@ class Particle {
         // markers: true,
         onEnter: ()=> {
           // console.log('on enter');
-          this._animateParticles(this.targetPositions.random);
+          // this._animateParticles(this.targetPositions.image1, 'image1');
+          this._animateParticles('image1');
         },
         onLeaveBack: ()=> {
           // console.log('on leaveback');
-          this._animateParticles(this.targetPositions.earth);
+          // this._animateParticles(this.targetPositions.image0, 'image0');
+          this._animateParticles('image0');
         }
       }
     });
