@@ -52,14 +52,17 @@ class Particle {
     ]
     this.imageList = [];
 
+    this.geometries = {};
+
     this.particlesMesh = null;
 
-    // this.countParticle = 0;
     
     this.randomMesh = null;
     
     this.targetPositions = {};
     this.targetCountParticles = {};
+
+    this.maxParticleCount = 0; // 最大パーティクル数
 
     this.clock = new THREE.Clock();
     this.uniforms = {
@@ -79,7 +82,7 @@ class Particle {
         img.addEventListener('load', () => {
           const imagePixels = ImagePixel(img, img.width, img.height, 5.0);
           this.imageList[index] = imagePixels;
-          this._setImageTargetPositions(imagePixels, index);
+          this._setImageGeometries(imagePixels, index);
           resolve();
         });
       });
@@ -87,13 +90,13 @@ class Particle {
 
     Promise.all(this.promiseList).then(() => {
       // this._setMesh();
-      this._setRandomMesh();
+      this._setRandomGeometry();
       this._initParticlesMesh();
       this._setAnimation();
     })
   }
 
-  _setImageTargetPositions(imagePixels, index) {
+  _setImageGeometries(imagePixels, index) {
     const filteredPositions = [];
     const filteredColors = [];
 
@@ -113,7 +116,7 @@ class Particle {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(filteredPositions, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(filteredColors, 3));
 
-    // // ランダム要素
+    // ランダム情報追加
     const randomArray = [];
     const vertices = filteredPositions.length / 3;
     for (let i = 0; i < vertices; i++) {
@@ -121,23 +124,22 @@ class Particle {
     }
     geometry.setAttribute('aRandom', new THREE.Float32BufferAttribute(randomArray, 3));
 
-    
-    const material = new THREE.ShaderMaterial({
-      vertexShader: vertexSource,
-      fragmentShader: fragmentSource,
-      transparent: true
-    });
-    this.mesh = new THREE.Points(geometry, material);
-    
+
+    this.geometries[`image${index}`] = geometry;
+
     this.targetPositions[`image${index}`] = [...geometry.attributes.position.array];
-    // パーティクル数を設定
-    this.targetCountParticles[`image${index}`] = filteredPositions.length / 3;
+
+    // パーティクル数の設定
+    const particleCount = filteredPositions.length / 3;
+    this.maxParticleCount = Math.max(this.maxParticleCount, particleCount);
+    this.targetCountParticles[`image${index}`] = particleCount;
+
   }
 
-  _setRandomMesh() {
+  _setRandomGeometry() {
     // console.log(this.countParticle);
     const vertices = [];
-    for (let i = 0; i < this.countParticle; i++) {
+    for (let i = 0; i < this.maxParticleCount; i++) {
       const x = (Math.random() - 0.5) * (window.innerWidth * 1.5);
       const y = (Math.random() - 0.5) * 2000;
       const z = (Math.random() - 0.5) * (window.innerWidth * 1.0) - 500;
@@ -147,28 +149,31 @@ class Particle {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
-    const material = new THREE.PointsMaterial({
-      // vertexColors: true,
-      color: "red",
-      size: 2.0
-    });
+    // const material = new THREE.PointsMaterial({
+    //   // vertexColors: true,
+    //   color: "red",
+    //   size: 2.0
+    // });
 
     // ランダム要素
-    const randomArray = [];
-    for (let i = 0; i < this.countParticle; i++) {
-      randomArray.push(random(-2.0, 2.0), random(-2.0, 2.0), random(-2.0, 2.0));
-    }
-    geometry.setAttribute('aRandom', new THREE.Float32BufferAttribute(randomArray, 3));
+    // const randomArray = [];
+    // for (let i = 0; i < this.countParticle; i++) {
+    //   randomArray.push(random(-2.0, 2.0), random(-2.0, 2.0), random(-2.0, 2.0));
+    // }
+    // geometry.setAttribute('aRandom', new THREE.Float32BufferAttribute(randomArray, 3));
 
 
-    this.randomMesh = new THREE.Points(geometry, material);
+    // this.randomMesh = new THREE.Points(geometry, material);
+
+    this.geometries['random'] = geometry;
 
     this.targetPositions.random = [...geometry.attributes.position.array];
 
   }
 
   _initParticlesMesh() {
-    this.particleGeometry = this.mesh.geometry;
+    // this.particleGeometry = this.mesh.geometry;
+    this.particleGeometry = this.geometries.image0;
     // this.particleGeometry = this.randomMesh.geometry;
     this.particleMaterial = new THREE.ShaderMaterial({
       vertexShader: vertexSource,
@@ -186,7 +191,11 @@ class Particle {
   _animateParticles(target) {
     const positions = this.particlesMesh.geometry.attributes.position.array;
     const targetPosition = this.targetPositions[target];
-    console.log(targetPosition)
+
+    const currentParticleCount = positions.length / 3;
+    const targetPositionCount = targetPosition.length / 3;
+    // console.log('targetPositionCount:', targetPositionCount);
+    // console.log(targetPosition)
 
     for (let i = 0; i < targetPosition.length; i+=3) {
       // アニメーション用中間オブジェクト
@@ -198,25 +207,47 @@ class Particle {
 
       gsap.to(intermediateObject, {
         // duration: 1.6,
-        duration: 1.6 + Math.random() * 0.5, // 0.5秒のランダムな遅延
+        duration: 1.4 + Math.random() * 0.5, // 0.5秒のランダムな遅延
         delay: 0.0 + Math.random() * 0.5,
         // ease: "power2.inOut",
         ease: "expo.inOut",
         x: targetPosition[i],
         y: targetPosition[i+1],
         z: targetPosition[i+2],
+        // onStart: () => {
+        //   if (currentParticleCount > targetPositionCount) {
+        //     for (let i = targetPositionCount * 3; i < positions.length; i += 3) {
+        //       positions[i + 2] -= 10000; // 余剰のパーティクルを隠す
+        //     }
+        //     this.particlesMesh.geometry.attributes.position.needsUpdate = true;
+        //   }
+        // },
         onUpdate: () => {
           positions[i] = intermediateObject.x;
           positions[i+1] = intermediateObject.y;
           positions[i+2] = intermediateObject.z;
           this.particlesMesh.geometry.attributes.position.needsUpdate = true;
+          // this.particlesMesh.geometry.attributes.color.needsUpdate = true;
         }
       });
 
     }
+
+    // if (currentParticleCount > targetPositionCount) {
+    //   for (let i = targetPositionCount * 3; i < positions.length; i += 3) {
+    //     positions[i + 2] -= 10000; // 余剰のパーティクルを隠す
+    //   }
+    //   this.particlesMesh.geometry.attributes.position.needsUpdate = true;
+    // }
   }
 
   _setAnimation() {
+    const tl0 = gsap.timeline({
+      onComplete: ()=>{
+        this._animateParticles('image0');
+      }
+    });
+
     const tl1 = gsap.timeline({
       scrollTrigger: {
         trigger: '#section02',
@@ -225,13 +256,11 @@ class Particle {
         // markers: true,
         onEnter: ()=> {
           // console.log('on enter');
-          // this._animateParticles(this.targetPositions.image0, 'image0');
-          this._animateParticles('image0');
+          this._animateParticles('random');
         },
         onLeaveBack: ()=> {
           // console.log('on leaveback');
-          // this._animateParticles(this.targetPositions.image1, 'image1');
-          this._animateParticles('image1');
+          this._animateParticles('image0');
         }
       }
     });
@@ -244,12 +273,10 @@ class Particle {
         // markers: true,
         onEnter: ()=> {
           // console.log('on enter');
-          // this._animateParticles(this.targetPositions.image1, 'image1');
           this._animateParticles('image1');
         },
         onLeaveBack: ()=> {
           // console.log('on leaveback');
-          // this._animateParticles(this.targetPositions.image0, 'image0');
           this._animateParticles('image0');
         }
       }
