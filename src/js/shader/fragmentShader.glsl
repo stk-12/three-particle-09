@@ -10,5 +10,10 @@ void main() {
     discard;
   }
 
-  gl_FragColor = vec4(vColor, 1.0);
+  float alpha = 1.0;
+  if(vColor.r < 0.3) {
+    alpha = 0.0;
+  }
+
+  gl_FragColor = vec4(vColor, alpha);
 }

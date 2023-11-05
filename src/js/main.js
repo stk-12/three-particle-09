@@ -1,7 +1,6 @@
 
 import { random } from './utils';
 import * as THREE from "three";
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import vertexSource from "./shader/vertexShader.glsl";
 import fragmentSource from "./shader/fragmentShader.glsl";
 import Stats from "three/examples/jsm/libs/stats.module.js"
@@ -62,6 +61,8 @@ class Particle {
     this.targetPositions = {};
     this.targetCountParticles = {};
 
+    this.targetColors = {};
+
     this.maxParticleCount = 0; // 最大パーティクル数
 
     this.clock = new THREE.Clock();
@@ -80,7 +81,7 @@ class Particle {
         img.crossOrigin = "anonymous";
   
         img.addEventListener('load', () => {
-          const imagePixels = ImagePixel(img, img.width, img.height, 5.0);
+          const imagePixels = ImagePixel(img, img.width, img.height, 7.0);
           this.imageList[index] = imagePixels;
           this._setImageGeometries(imagePixels, index);
           resolve();
@@ -103,13 +104,18 @@ class Particle {
     const positions = imagePixels.position;
     const colors = imagePixels.color;
 
+    console.log('colors:', colors);
+
     for (let i = 0; i < colors.length; i += 3) {
-      // R成分を元にデータをフィルタリング
-      if (colors[i] >= 0.3) {
-        filteredPositions.push(positions[i] + random(-0.5, 0.5), positions[i + 1] + random(-0.5, 0.5), positions[i + 2]);
-        filteredColors.push(colors[i], colors[i + 1], colors[i + 2]);
-        // filteredAlphas.push(alphas[i / 3]);
-      }
+      // // R成分を元にデータをフィルタリング
+      // if (colors[i] >= 0.3) {
+      //   filteredPositions.push(positions[i] + random(-0.5, 0.5), positions[i + 1] + random(-0.5, 0.5), positions[i + 2]);
+      //   filteredColors.push(colors[i], colors[i + 1], colors[i + 2]);
+      //   // filteredAlphas.push(alphas[i / 3]);
+      // }
+      filteredPositions.push(positions[i] + random(-0.5, 0.5), positions[i + 1] + random(-0.5, 0.5), positions[i + 2]);
+      filteredColors.push(colors[i], colors[i + 1], colors[i + 2]);
+      // filteredAlphas.push(alphas[i / 3]);
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -129,11 +135,14 @@ class Particle {
 
     this.targetPositions[`image${index}`] = [...geometry.attributes.position.array];
 
+    this.targetColors[`image${index}`] = [...geometry.attributes.color.array];
+
     // パーティクル数の設定
     const particleCount = filteredPositions.length / 3;
     this.maxParticleCount = Math.max(this.maxParticleCount, particleCount);
     this.targetCountParticles[`image${index}`] = particleCount;
 
+    // console.log(this.maxParticleCount);
   }
 
   _setRandomGeometry() {
@@ -149,29 +158,13 @@ class Particle {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
-    // const material = new THREE.PointsMaterial({
-    //   // vertexColors: true,
-    //   color: "red",
-    //   size: 2.0
-    // });
-
-    // ランダム要素
-    // const randomArray = [];
-    // for (let i = 0; i < this.countParticle; i++) {
-    //   randomArray.push(random(-2.0, 2.0), random(-2.0, 2.0), random(-2.0, 2.0));
-    // }
-    // geometry.setAttribute('aRandom', new THREE.Float32BufferAttribute(randomArray, 3));
-
-
-    // this.randomMesh = new THREE.Points(geometry, material);
-
     this.geometries['random'] = geometry;
 
     this.targetPositions.random = [...geometry.attributes.position.array];
-
   }
 
   _initParticlesMesh() {
+    console.log(this.geometries);
     // this.particleGeometry = this.mesh.geometry;
     this.particleGeometry = this.geometries.image0;
     // this.particleGeometry = this.randomMesh.geometry;
@@ -192,17 +185,20 @@ class Particle {
     const positions = this.particlesMesh.geometry.attributes.position.array;
     const targetPosition = this.targetPositions[target];
 
-    const currentParticleCount = positions.length / 3;
-    const targetPositionCount = targetPosition.length / 3;
-    // console.log('targetPositionCount:', targetPositionCount);
-    // console.log(targetPosition)
+    // console.log(targetPosition);
+
+    const colors = this.particlesMesh.geometry.attributes.color.array;
+    const targetColor = this.targetColors[target];
 
     for (let i = 0; i < targetPosition.length; i+=3) {
       // アニメーション用中間オブジェクト
       const intermediateObject = {
         x: positions[i],
         y: positions[i+1],
-        z: positions[i+2]
+        z: positions[i+2],
+        colorR: colors[i],
+        colorG: colors[i + 1],
+        colorB: colors[i + 2],
       };
 
       gsap.to(intermediateObject, {
@@ -214,31 +210,26 @@ class Particle {
         x: targetPosition[i],
         y: targetPosition[i+1],
         z: targetPosition[i+2],
-        // onStart: () => {
-        //   if (currentParticleCount > targetPositionCount) {
-        //     for (let i = targetPositionCount * 3; i < positions.length; i += 3) {
-        //       positions[i + 2] -= 10000; // 余剰のパーティクルを隠す
-        //     }
-        //     this.particlesMesh.geometry.attributes.position.needsUpdate = true;
-        //   }
-        // },
+        colorR: targetColor[i],
+        colorG: targetColor[i + 1],
+        colorB: targetColor[i + 2],
         onUpdate: () => {
+          // 位置情報の更新
           positions[i] = intermediateObject.x;
           positions[i+1] = intermediateObject.y;
           positions[i+2] = intermediateObject.z;
+          // 色情報の更新
+          colors[i] = intermediateObject.colorR;
+          colors[i + 1] = intermediateObject.colorG;
+          colors[i + 2] = intermediateObject.colorB;
+
+          // 属性の更新フラグ
           this.particlesMesh.geometry.attributes.position.needsUpdate = true;
-          // this.particlesMesh.geometry.attributes.color.needsUpdate = true;
+          this.particlesMesh.geometry.attributes.color.needsUpdate = true;
         }
       });
 
     }
-
-    // if (currentParticleCount > targetPositionCount) {
-    //   for (let i = targetPositionCount * 3; i < positions.length; i += 3) {
-    //     positions[i + 2] -= 10000; // 余剰のパーティクルを隠す
-    //   }
-    //   this.particlesMesh.geometry.attributes.position.needsUpdate = true;
-    // }
   }
 
   _setAnimation() {
@@ -253,7 +244,7 @@ class Particle {
         trigger: '#section02',
         start: 'top bottom',
         toggleActions: 'play none none reverse',
-        // markers: true,
+        markers: true,
         onEnter: ()=> {
           // console.log('on enter');
           this._animateParticles('random');
@@ -270,14 +261,14 @@ class Particle {
         trigger: '#section03',
         start: 'top bottom',
         toggleActions: 'play none none reverse',
-        // markers: true,
+        markers: true,
         onEnter: ()=> {
           // console.log('on enter');
           this._animateParticles('image1');
         },
         onLeaveBack: ()=> {
           // console.log('on leaveback');
-          this._animateParticles('image0');
+          this._animateParticles('random');
         }
       }
     });
@@ -321,8 +312,6 @@ class Main {
     this.scene = new THREE.Scene();
     this.camera = null;
 
-
-    this.loader = new GLTFLoader();
 
     // this.randomMesh = null;
 

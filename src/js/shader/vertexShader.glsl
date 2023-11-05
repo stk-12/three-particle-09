@@ -45,5 +45,5 @@ void main() {
 
   gl_Position = projectionMatrix * modelPosition;
   // gl_PointSize = 2.0;
-  gl_PointSize = 1.0 + 3000.0 / -modelPosition.z;
+  gl_PointSize = 2.0 + 3000.0 / -modelPosition.z;
 }
