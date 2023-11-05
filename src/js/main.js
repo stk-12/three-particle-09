@@ -3,7 +3,7 @@ import { random } from './utils';
 import * as THREE from "three";
 import vertexSource from "./shader/vertexShader.glsl";
 import fragmentSource from "./shader/fragmentShader.glsl";
-import Stats from "three/examples/jsm/libs/stats.module.js"
+// import Stats from "three/examples/jsm/libs/stats.module.js"
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
@@ -345,18 +345,11 @@ class Main {
     this.scene = new THREE.Scene();
     this.camera = null;
 
-
-    // this.randomMesh = null;
-
-    this.surfaceMesh = null;
-
-    this.targetPositions = {};
-
     this.partcle = new Particle(this.scene);
     this.partcle.init();
 
-    this.stats = new Stats();
-    document.body.appendChild(this.stats.dom);
+    // this.stats = new Stats();
+    // document.body.appendChild(this.stats.dom);
 
     this._init();
     this._update();
@@ -388,7 +381,7 @@ class Main {
     // this.particlesMesh.rotation.y += 0.0005;
     // this.particlesMesh.rotation.x += 0.005;
 
-    this.stats.update();
+    // this.stats.update();
 
     this.partcle.onUpdate();
 
