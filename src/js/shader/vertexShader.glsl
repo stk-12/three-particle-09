@@ -1,3 +1,5 @@
+precision lowp float;
+
 attribute vec3 color;
 // attribute float alpha;
 attribute vec3 aRandom;
@@ -33,8 +35,8 @@ void main() {
 
   float time = uTime * 0.05;
   vec3 random = (aRandom * 10.0) + 1.0;
-  pos.x += 5.0 * sin((time + random.x) * random.y);
-  pos.y += 5.0 * cos((time + random.y) * random.x);
+  pos.x += 8.0 * sin((time + random.x) * random.y);
+  pos.y += 8.0 * cos((time + random.y) * random.x);
   pos.z += 10.0 * cos((time + random.z) * random.x);
 
   // float offsetTime = uTime + aRandom.x * 50.0;  // aRandom.xをオフセットとして使用
@@ -45,5 +47,5 @@ void main() {
 
   gl_Position = projectionMatrix * modelPosition;
   // gl_PointSize = 2.0;
-  gl_PointSize = 2.0 + 3000.0 / -modelPosition.z;
+  gl_PointSize = 1.0 + 3000.0 / -modelPosition.z;
 }

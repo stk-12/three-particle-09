@@ -48,6 +48,7 @@ class Particle {
     this.pathList = [
       'images/eagle.jpg',
       'images/lion.jpg',
+      'images/parrot.jpg',
     ]
     this.imageList = [];
 
@@ -81,7 +82,7 @@ class Particle {
         img.crossOrigin = "anonymous";
   
         img.addEventListener('load', () => {
-          const imagePixels = ImagePixel(img, img.width, img.height, 7.0);
+          const imagePixels = ImagePixel(img, img.width, img.height, 6.0);
           this.imageList[index] = imagePixels;
           this._setImageGeometries(imagePixels, index);
           resolve();
@@ -103,8 +104,6 @@ class Particle {
 
     const positions = imagePixels.position;
     const colors = imagePixels.color;
-
-    console.log('colors:', colors);
 
     for (let i = 0; i < colors.length; i += 3) {
       // // R成分を元にデータをフィルタリング
@@ -134,7 +133,6 @@ class Particle {
     this.geometries[`image${index}`] = geometry;
 
     this.targetPositions[`image${index}`] = [...geometry.attributes.position.array];
-
     this.targetColors[`image${index}`] = [...geometry.attributes.color.array];
 
     // パーティクル数の設定
@@ -185,10 +183,11 @@ class Particle {
     const positions = this.particlesMesh.geometry.attributes.position.array;
     const targetPosition = this.targetPositions[target];
 
-    // console.log(targetPosition);
+    // 色情報はrandom以外の場合にのみ更新する
+    const shouldUpdateColors = target !== "random";
 
-    const colors = this.particlesMesh.geometry.attributes.color.array;
-    const targetColor = this.targetColors[target];
+    const colors = shouldUpdateColors ? this.particlesMesh.geometry.attributes.color.array: null;
+    const targetColor = shouldUpdateColors ? this.targetColors[target]: null;
 
     for (let i = 0; i < targetPosition.length; i+=3) {
       // アニメーション用中間オブジェクト
@@ -196,39 +195,47 @@ class Particle {
         x: positions[i],
         y: positions[i+1],
         z: positions[i+2],
-        colorR: colors[i],
-        colorG: colors[i + 1],
-        colorB: colors[i + 2],
+        // random以外の場合追加
+        ...(shouldUpdateColors && {
+          colorR: colors[i],
+          colorG: colors[i + 1],
+          colorB: colors[i + 2],
+        }),
       };
 
-      gsap.to(intermediateObject, {
-        // duration: 1.6,
-        duration: 1.4 + Math.random() * 0.5, // 0.5秒のランダムな遅延
+      const animationObject = {
+        duration: 1.2 + Math.random() * 0.5,
         delay: 0.0 + Math.random() * 0.5,
-        // ease: "power2.inOut",
         ease: "expo.inOut",
         x: targetPosition[i],
-        y: targetPosition[i+1],
-        z: targetPosition[i+2],
-        colorR: targetColor[i],
-        colorG: targetColor[i + 1],
-        colorB: targetColor[i + 2],
+        y: targetPosition[i + 1],
+        z: targetPosition[i + 2],
         onUpdate: () => {
-          // 位置情報の更新
           positions[i] = intermediateObject.x;
-          positions[i+1] = intermediateObject.y;
-          positions[i+2] = intermediateObject.z;
-          // 色情報の更新
-          colors[i] = intermediateObject.colorR;
-          colors[i + 1] = intermediateObject.colorG;
-          colors[i + 2] = intermediateObject.colorB;
-
-          // 属性の更新フラグ
+          positions[i + 1] = intermediateObject.y;
+          positions[i + 2] = intermediateObject.z;
+          // 位置の更新フラグ
           this.particlesMesh.geometry.attributes.position.needsUpdate = true;
-          this.particlesMesh.geometry.attributes.color.needsUpdate = true;
-        }
-      });
-
+  
+          // 色情報の更新
+          if (shouldUpdateColors) {
+            colors[i] = intermediateObject.colorR;
+            colors[i + 1] = intermediateObject.colorG;
+            colors[i + 2] = intermediateObject.colorB;
+            // 色の更新フラグ
+            this.particlesMesh.geometry.attributes.color.needsUpdate = true;
+          }
+        },
+      };
+  
+      // random以外の場合追加アニメーションに追加
+      if (shouldUpdateColors) {
+        animationObject.colorR = targetColor[i];
+        animationObject.colorG = targetColor[i + 1];
+        animationObject.colorB = targetColor[i + 2];
+      }
+  
+      gsap.to(intermediateObject, animationObject);
     }
   }
 
@@ -244,13 +251,11 @@ class Particle {
         trigger: '#section02',
         start: 'top bottom',
         toggleActions: 'play none none reverse',
-        markers: true,
+        // markers: true,
         onEnter: ()=> {
-          // console.log('on enter');
           this._animateParticles('random');
         },
         onLeaveBack: ()=> {
-          // console.log('on leaveback');
           this._animateParticles('image0');
         }
       }
@@ -261,13 +266,41 @@ class Particle {
         trigger: '#section03',
         start: 'top bottom',
         toggleActions: 'play none none reverse',
-        markers: true,
+        // markers: true,
         onEnter: ()=> {
-          // console.log('on enter');
           this._animateParticles('image1');
         },
         onLeaveBack: ()=> {
-          // console.log('on leaveback');
+          this._animateParticles('random');
+        }
+      }
+    });
+
+    const tl3 = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#section04',
+        start: 'top bottom',
+        toggleActions: 'play none none reverse',
+        // markers: true,
+        onEnter: ()=> {
+          this._animateParticles('random');
+        },
+        onLeaveBack: ()=> {
+          this._animateParticles('image1');
+        }
+      }
+    });
+
+    const tl4 = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#section05',
+        start: 'top bottom',
+        toggleActions: 'play none none reverse',
+        // markers: true,
+        onEnter: ()=> {
+          this._animateParticles('image2');
+        },
+        onLeaveBack: ()=> {
           this._animateParticles('random');
         }
       }

@@ -11,7 +11,7 @@ void main() {
   }
 
   float alpha = 1.0;
-  if(vColor.r < 0.3) {
+  if(vColor.r < 0.2) {
     alpha = 0.0;
   }
 
